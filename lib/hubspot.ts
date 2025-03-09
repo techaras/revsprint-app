@@ -14,6 +14,8 @@ interface HubSpotErrorResponse {
   message?: string;
   error?: string;
   errors?: Array<{ message: string }>;
+  // Add index signature to match HubSpotAccountInfo
+  [key: string]: unknown;
 }
 
 // Define HubSpot account info type
@@ -21,7 +23,11 @@ interface HubSpotAccountInfo {
   portalId?: number;
   portalName?: string;
   portalDomain?: string;
-  [key: string]: any;
+  // Include error properties that might come from error responses
+  error?: string;
+  message?: string;
+  // Use unknown instead of any
+  [key: string]: unknown;
 }
 
 export class HubSpotAPI {
@@ -46,7 +52,7 @@ export class HubSpotAPI {
       return response.data;
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
-        return error.response?.data as HubSpotErrorResponse || 
+        return error.response?.data as HubSpotAccountInfo || 
           { error: 'API Error', message: error.message };
       }
       return { error: 'Unknown error', message: String(error) };
