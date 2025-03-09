@@ -1,4 +1,11 @@
 -- CreateTable
+CREATE TABLE "Config" (
+    "configKey" TEXT NOT NULL PRIMARY KEY,
+    "configValue" TEXT NOT NULL DEFAULT '',
+    "insertDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
 CREATE TABLE "HubSpotAccount" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "hubspotId" TEXT NOT NULL,
@@ -10,10 +17,8 @@ CREATE TABLE "HubSpotAccount" (
     "updatedAt" DATETIME NOT NULL
 );
 
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
-CREATE TABLE "new_LoginCredential" (
+-- CreateTable
+CREATE TABLE "LoginCredential" (
     "contactId" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
@@ -21,10 +26,9 @@ CREATE TABLE "new_LoginCredential" (
     "hubspotAccountId" INTEGER,
     CONSTRAINT "LoginCredential_hubspotAccountId_fkey" FOREIGN KEY ("hubspotAccountId") REFERENCES "HubSpotAccount" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-INSERT INTO "new_LoginCredential" ("contactId", "email", "insertDate", "password") SELECT "contactId", "email", "insertDate", "password" FROM "LoginCredential";
-DROP TABLE "LoginCredential";
-ALTER TABLE "new_LoginCredential" RENAME TO "LoginCredential";
-CREATE TABLE "new_LoginHistory" (
+
+-- CreateTable
+CREATE TABLE "LoginHistory" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "contactId" INTEGER NOT NULL,
     "ip" TEXT NOT NULL,
@@ -34,11 +38,16 @@ CREATE TABLE "new_LoginHistory" (
     CONSTRAINT "LoginHistory_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "LoginCredential" ("contactId") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "LoginHistory_hubspotAccountId_fkey" FOREIGN KEY ("hubspotAccountId") REFERENCES "HubSpotAccount" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-INSERT INTO "new_LoginHistory" ("contactId", "id", "insertDate", "ip", "success") SELECT "contactId", "id", "insertDate", "ip", "success" FROM "LoginHistory";
-DROP TABLE "LoginHistory";
-ALTER TABLE "new_LoginHistory" RENAME TO "LoginHistory";
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
+
+-- CreateTable
+CREATE TABLE "User" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "email" TEXT NOT NULL,
+    "name" TEXT
+);
 
 -- CreateIndex
 CREATE UNIQUE INDEX "HubSpotAccount_hubspotId_key" ON "HubSpotAccount"("hubspotId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
