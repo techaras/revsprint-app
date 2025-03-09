@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,13 @@ interface LoginHistory {
   success: boolean;
 }
 
-export default function CrmCardPage() {
+// Create a loading component
+function LoadingState() {
+  return <div className="p-4">Loading...</div>;
+}
+
+// Create the inner component that uses useSearchParams
+function CrmCardContent() {
   const searchParams = useSearchParams();
   const contactId = searchParams.get('contact_id');
   const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
@@ -89,5 +95,14 @@ export default function CrmCardPage() {
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CrmCardPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <CrmCardContent />
+    </Suspense>
   );
 }
