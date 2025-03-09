@@ -8,8 +8,35 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Config {
+  configKey   String   @id
+  configValue String   @default("")
+  insertDate  DateTime @default(now())
 
-// Just one simple table to test the connection
+  @@map("config")
+}
+
+model LoginCredential {
+  contactId    Int            @id @default(autoincrement())
+  email        String
+  password     String
+  insertDate   DateTime       @default(now())
+  loginHistory LoginHistory[]
+
+  @@map("login_credential")
+}
+
+model LoginHistory {
+  id         Int             @id @default(autoincrement())
+  contactId  Int
+  ip         String
+  insertDate DateTime        @default(now())
+  success    Boolean         @default(false)
+  credential LoginCredential @relation(fields: [contactId], references: [contactId])
+
+  @@map("login_history")
+}
+
 model User {
   id    Int     @id @default(autoincrement())
   email String  @unique
