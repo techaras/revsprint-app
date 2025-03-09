@@ -35,9 +35,8 @@ export class ConfigService {
     });
   }
 
-  // Save OAuth tokens
-  static async saveTokens(accessToken: string, refreshToken: string) {
-    // Define the base config values that should always exist
+  // Save global application config
+  static async initializeAppConfig() {
     const configData = [
       { configKey: 'api_key', configValue: '' },
       { configKey: 'app_id', configValue: '' },
@@ -47,8 +46,7 @@ export class ConfigService {
       { configKey: 'redirect_url', configValue: process.env.HUBSPOT_REDIRECT_URL || 'http://localhost:3000/api/hubspot/install' }
     ];
     
-    // Create operations for the seed config values (don't update if they exist)
-    const seedOperations = configData.map(config => 
+    const operations = configData.map(config => 
       prisma.config.upsert({
         where: { configKey: config.configKey },
         update: {}, // Don't update existing values
@@ -59,59 +57,112 @@ export class ConfigService {
       })
     );
     
-    // Add the token operations
-    const tokenOperations = [
-      prisma.config.upsert({
-        where: { configKey: 'access_token' },
-        update: { configValue: accessToken },
-        create: {
-          configKey: 'access_token',
-          configValue: accessToken
-        }
-      }),
-      prisma.config.upsert({
-        where: { configKey: 'refresh_token' },
-        update: { configValue: refreshToken },
-        create: {
-          configKey: 'refresh_token',
-          configValue: refreshToken
-        }
-      })
-    ];
-    
-    // Execute all operations in a transaction
-    const allOperations = [...seedOperations, ...tokenOperations];
-    await prisma.$transaction(allOperations);
-    
-    console.log('Tokens saved and config initialized');
+    await prisma.$transaction(operations);
     return true;
   }
 }
 
+export class HubSpotAccountService {
+  // Save or update a HubSpot account with tokens
+  static async saveAccount(portalId: string, name: string | null, accessToken: string, refreshToken: string, expiresIn: number = 86400) {
+    // Calculate expiration date (default to 24 hours if not provided)
+    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+    
+    // Initialize global config if needed
+    await ConfigService.initializeAppConfig();
+    
+    return prisma.hubSpotAccount.upsert({
+      where: { hubspotId: portalId },
+      update: {
+        name: name || undefined,
+        accessToken,
+        refreshToken,
+        expiresAt,
+        updatedAt: new Date()
+      },
+      create: {
+        hubspotId: portalId,
+        name: name || "HubSpot Account",
+        accessToken,
+        refreshToken,
+        expiresAt
+      }
+    });
+  }
+  
+  // Get account by HubSpot portal ID
+  static async getAccountByPortalId(portalId: string) {
+    return prisma.hubSpotAccount.findUnique({
+      where: { hubspotId: portalId }
+    });
+  }
+  
+  // Get account by ID
+  static async getAccountById(id: number) {
+    return prisma.hubSpotAccount.findUnique({
+      where: { id }
+    });
+  }
+  
+  // Get all active accounts
+  static async getAllAccounts() {
+    return prisma.hubSpotAccount.findMany({
+      orderBy: { updatedAt: 'desc' }
+    });
+  }
+  
+  // Update account tokens
+  static async updateAccountTokens(id: number, accessToken: string, refreshToken: string, expiresIn: number = 86400) {
+    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+    
+    return prisma.hubSpotAccount.update({
+      where: { id },
+      data: {
+        accessToken,
+        refreshToken,
+        expiresAt,
+        updatedAt: new Date()
+      }
+    });
+  }
+}
+
 export class LoginService {
-  // Record a login attempt
-  static async recordLoginAttempt(contactId: number, ip: string, success: boolean) {
-    await prisma.loginHistory.create({
+  // Record a login attempt with account context
+  static async recordLoginAttempt(
+    contactId: number, 
+    ip: string, 
+    success: boolean, 
+    hubspotAccountId?: number
+  ) {
+    return prisma.loginHistory.create({
       data: {
         contactId,
         ip,
-        success
+        success,
+        hubspotAccountId: hubspotAccountId || undefined
       }
     });
   }
 
-  // Get login history for a contact
-  static async getLoginHistory(contactId: number) {
+  // Get login history for a contact (optionally filtered by account)
+  static async getLoginHistory(contactId: number, hubspotAccountId?: number) {
     return prisma.loginHistory.findMany({
-      where: { contactId },
+      where: { 
+        contactId,
+        ...(hubspotAccountId ? { hubspotAccountId } : {})
+      },
       orderBy: { insertDate: 'desc' }
     });
   }
 
-  // Get login statistics for a contact
-  static async getLoginStats(contactId: number) {
+  // Get login statistics for a contact (optionally filtered by account)
+  static async getLoginStats(contactId: number, hubspotAccountId?: number) {
     const loginHistory = await prisma.loginHistory.findMany({
-      where: { contactId }
+      where: { 
+        contactId,
+        ...(hubspotAccountId ? { hubspotAccountId } : {})
+      }
     });
 
     const totalLogins = loginHistory.length;
@@ -129,15 +180,39 @@ export class LoginService {
     };
   }
 
-  // Verify login credentials
-  static async verifyCredentials(email: string, password: string) {
+  // Verify login credentials (optionally for a specific account)
+  static async verifyCredentials(email: string, password: string, hubspotAccountId?: number) {
     const credentials = await prisma.loginCredential.findFirst({
       where: {
         email,
-        password
+        password,
+        ...(hubspotAccountId ? { hubspotAccountId } : {})
       }
     });
 
     return credentials !== null;
+  }
+  
+  // Create or update login credentials for a contact in a specific HubSpot account
+  static async createOrUpdateCredentials(
+    contactId: number, 
+    email: string, 
+    password: string, 
+    hubspotAccountId?: number
+  ) {
+    return prisma.loginCredential.upsert({
+      where: { contactId },
+      update: {
+        email,
+        password,
+        hubspotAccountId: hubspotAccountId || undefined
+      },
+      create: {
+        contactId,
+        email,
+        password,
+        hubspotAccountId: hubspotAccountId || undefined
+      }
+    });
   }
 }

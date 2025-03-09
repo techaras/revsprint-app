@@ -16,6 +16,14 @@ interface HubSpotErrorResponse {
   errors?: Array<{ message: string }>;
 }
 
+// Define HubSpot account info type
+interface HubSpotAccountInfo {
+  portalId?: number;
+  portalName?: string;
+  portalDomain?: string;
+  [key: string]: any;
+}
+
 export class HubSpotAPI {
   private token: string;
   private APIURLBase: string = 'https://api.hubapi.com';
@@ -23,6 +31,26 @@ export class HubSpotAPI {
 
   constructor(token: string = '') {
     this.token = token;
+  }
+
+  // Get HubSpot account information
+  async getAccountInfo(): Promise<HubSpotAccountInfo> {
+    try {
+      const response = await axios.get(`${this.APIURLBase}/integrations/v1/me`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`
+        }
+      });
+      
+      return response.data;
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
+        return error.response?.data as HubSpotErrorResponse || 
+          { error: 'API Error', message: error.message };
+      }
+      return { error: 'Unknown error', message: String(error) };
+    }
   }
 
   // Get contact by email

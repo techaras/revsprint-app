@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HubSpotAPI } from '@/lib/hubspot';
-import { ConfigService } from '@/lib/db-service';
+import { HubSpotAccountService } from '@/lib/db-service';
 
 export async function GET(request: NextRequest) {
   // Get the code from the URL query params
@@ -29,8 +29,25 @@ export async function GET(request: NextRequest) {
 
     // Check if we got the access token
     if (tokenResponse.access_token) {
-      // Save tokens to database
-      await ConfigService.saveTokens(tokenResponse.access_token, tokenResponse.refresh_token);
+      // Create HubSpot API instance with the new token
+      const hubspotAPIWithToken = new HubSpotAPI(tokenResponse.access_token);
+      
+      // Get HubSpot account info
+      const accountInfo = await hubspotAPIWithToken.getAccountInfo();
+      
+      if (!accountInfo.portalId) {
+        console.error('Failed to get portal ID from HubSpot:', accountInfo);
+        return NextResponse.json({ error: 'Could not retrieve HubSpot account information' }, { status: 500 });
+      }
+      
+      // Save the account with portal ID
+      await HubSpotAccountService.saveAccount(
+        accountInfo.portalId.toString(),
+        accountInfo.portalName || null,
+        tokenResponse.access_token,
+        tokenResponse.refresh_token,
+        tokenResponse.expires_in || 86400 // Default to 24 hours if not provided
+      );
       
       // Redirect to success page
       return NextResponse.redirect(new URL('/hubspot/install-success', request.url));
