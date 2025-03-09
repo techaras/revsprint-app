@@ -8,33 +8,27 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-model config {
+model Config {
   configKey   String   @id
   configValue String   @default("")
   insertDate  DateTime @default(now())
-
-  @@map("config")
 }
 
-model loginCredential {
+model LoginCredential {
   contactId    Int            @id @default(autoincrement())
   email        String
   password     String
   insertDate   DateTime       @default(now())
-  loginHistory loginHistory[]
-
-  @@map("login_credential")
+  loginHistory LoginHistory[]
 }
 
-model loginHistory {
+model LoginHistory {
   id         Int             @id @default(autoincrement())
   contactId  Int
   ip         String
   insertDate DateTime        @default(now())
   success    Boolean         @default(false)
-  credential loginCredential @relation(fields: [contactId], references: [contactId])
-
-  @@map("login_history")
+  credential LoginCredential @relation(fields: [contactId], references: [contactId])
 }
 
 model User {
@@ -43,4 +37,3 @@ model User {
   name  String?
 }
 
-//test deployment
