@@ -37,7 +37,30 @@ export class ConfigService {
 
   // Save OAuth tokens
   static async saveTokens(accessToken: string, refreshToken: string) {
-    const saveOperations = [
+    // Define the base config values that should always exist
+    const configData = [
+      { configKey: 'api_key', configValue: '' },
+      { configKey: 'app_id', configValue: '' },
+      { configKey: 'client_id', configValue: process.env.HUBSPOT_CLIENT_ID || '' },
+      { configKey: 'client_secret', configValue: process.env.HUBSPOT_CLIENT_SECRET || '' },
+      { configKey: 'install_url', configValue: '' },
+      { configKey: 'redirect_url', configValue: process.env.HUBSPOT_REDIRECT_URL || 'http://localhost:3000/api/hubspot/install' }
+    ];
+    
+    // Create operations for the seed config values (don't update if they exist)
+    const seedOperations = configData.map(config => 
+      prisma.config.upsert({
+        where: { configKey: config.configKey },
+        update: {}, // Don't update existing values
+        create: {
+          configKey: config.configKey,
+          configValue: config.configValue
+        }
+      })
+    );
+    
+    // Add the token operations
+    const tokenOperations = [
       prisma.config.upsert({
         where: { configKey: 'access_token' },
         update: { configValue: accessToken },
@@ -55,8 +78,12 @@ export class ConfigService {
         }
       })
     ];
-
-    await prisma.$transaction(saveOperations);
+    
+    // Execute all operations in a transaction
+    const allOperations = [...seedOperations, ...tokenOperations];
+    await prisma.$transaction(allOperations);
+    
+    console.log('Tokens saved and config initialized');
     return true;
   }
 }
